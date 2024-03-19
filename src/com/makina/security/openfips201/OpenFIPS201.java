@@ -62,6 +62,22 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
   private static final byte INS_PIV_GENERAL_AUTHENTICATE = (byte) 0x87;
   private static final byte INS_PIV_PUT_DATA = (byte) 0xDB;
   private static final byte INS_PIV_GENERATE_ASYMMETRIC_KEYPAIR = (byte) 0x47;
+
+  /* YubicoPIV extensions we support. */
+  /*
+  private static final byte INS_SET_MGMT = (byte)0xff;
+  private static final byte INS_IMPORT_ASYM = (byte)0xfe;
+  private static final byte INS_GET_VER = (byte)0xfd;
+  private static final byte INS_RESET = (byte)0xfb;
+  private static final byte INS_SET_PIN_RETRIES = (byte)0xfa;
+  private static final byte INS_ATTEST = (byte)0xf9;
+  private static final byte INS_GET_SERIAL = (byte)0xf8;
+  private static final byte INS_GET_MDATA = (byte)0xf7;
+  */
+
+  /* Our own private extensions. */
+  private static final byte INS_SG_DEBUG = (byte)0xe0;
+
   // Helper constants
   private static final short ZERO_SHORT = (short) 0;
   private static final byte SC_MASK =
@@ -226,11 +242,12 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
     // TODO: Re-introduce CLA checking
 
     switch (buffer[ISO7816.OFFSET_INS]) {
-      case INS_GP_INITIALIZE_UPDATE: // Case 4
+      
+      case INS_GP_INITIALIZE_UPDATE: // Case 4 0X50 SCP03
         processGP_SECURECHANNEL(apdu, true);
         break;
 
-      case INS_GP_EXTERNAL_AUTHENTICATE: // Case 4
+      case INS_GP_EXTERNAL_AUTHENTICATE: // Case 4 0X82 SCP03
         processGP_SECURECHANNEL(apdu, false);
         break;
 
@@ -255,7 +272,7 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
         processPIV_RESET_RETRY_COUNTER(apdu);
         break;
 
-      case INS_PIV_GENERAL_AUTHENTICATE: // Case 4
+      case INS_PIV_GENERAL_AUTHENTICATE: // Case 4 0x87
         processPIV_GENERAL_AUTHENTICATE(apdu);
         break;
 
@@ -416,17 +433,17 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
     }
 
     // PRE-CONDITION 2 - The P1 value must be equal to the constant CONST_P1
-    if (buffer[ISO7816.OFFSET_P1] != CONST_P1) {
+    if (buffer[ISO7816.OFFSET_P1] != CONST_P1) { // 3F 
       ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
     }
 
     // PRE-CONDITION 3 - The P2 value must be equal to the constant CONST_P2 or CONST_P2_ADMIN
     boolean admin = false;
 
-    if (buffer[ISO7816.OFFSET_P2] == CONST_P2_ADMIN) {
+    if (buffer[ISO7816.OFFSET_P2] == CONST_P2_ADMIN) { // 00
       // This is an administrative command
       admin = true;
-    } else if (buffer[ISO7816.OFFSET_P2] != CONST_P2) {
+    } else if (buffer[ISO7816.OFFSET_P2] != CONST_P2) { // FF
       ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
     }
 
@@ -523,20 +540,20 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
     // PRE-CONDITION 1 - The P2 value must be set to one of the standard PIN references
     // Either: '00' (Global PIN), '80' (PIV APP PIN) or '81' (PUK)
     boolean isStandard =
-        (buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_GLOBAL_PIN
-            || buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_LOCAL_PIN
-            || buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_PUK);
+        (buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_GLOBAL_PIN       // 00 P2
+            || buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_LOCAL_PIN  // 84 P2 
+            || buffer[ISO7816.OFFSET_P2] == PIV.ID_CVM_PUK);      // 81 P2
 
     // PRE-CONDITION 2 - If the P2 value is set to one of the standard PIN references but the P1
     // value is set to CONST_P1_ADMIN, we consider this an administrative command for the purposes
     // of changing the PINs over SCP
-    if (isStandard && buffer[ISO7816.OFFSET_P1] == CONST_P1_ADMIN) {
+    if (isStandard && buffer[ISO7816.OFFSET_P1] == CONST_P1_ADMIN) { // FF
       isStandard = false;
     }
 
     // PRE-CONDITION 3 - If the P2 value is set to one of the standard PIN references, the P1 value
     // must be equal to the constant CONST_P1
-    if (isStandard && buffer[ISO7816.OFFSET_P1] != CONST_P1) {
+    if (isStandard && buffer[ISO7816.OFFSET_P1] != CONST_P1) { // 00
       ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
     }
 
@@ -615,6 +632,7 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
     // STEP 2 - Process the first frame of the chainBuffer for this response, if any
     if (length > 0) piv.processOutgoing(apdu);
   }
+
 
   /**
    * Process the PIV 'GENERATE ASYMMETRIC KEYPAIR' command
