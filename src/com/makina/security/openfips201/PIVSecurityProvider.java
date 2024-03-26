@@ -271,6 +271,7 @@ final class PIVSecurityProvider {
    * @param PIVObject key that needs to be deleted
    */
   void DeleteKeyFromStore(PIVKeyObject keyToBeDeleted) {
+  	byte[] array1 = {10, 20, 30}; // dummy array to keep compiler happy
 
     PIVKeyObject temp_position = null;
     PIVKeyObject keyPrev = firstKey;
@@ -301,7 +302,7 @@ final class PIVSecurityProvider {
 
     } while (false);
 
-    keyToBeDeleted.clear();
+    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,(short)0); // free the memory
   }
 
 
