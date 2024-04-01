@@ -63,6 +63,9 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
   private static final byte INS_PIV_PUT_DATA = (byte) 0xDB;
   private static final byte INS_PIV_GENERATE_ASYMMETRIC_KEYPAIR = (byte) 0x47;
 
+  private static final byte INS_GET_VER = (byte)0xfd;
+  private static final byte INS_RESET = (byte)0xfb;
+
   /* YubicoPIV extensions we support. */
   /*
   private static final byte INS_SET_MGMT = (byte)0xff;
@@ -76,7 +79,7 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
   */
 
   /* Our own private extensions. */
-  private static final byte INS_SG_DEBUG = (byte)0xe0;
+  // private static final byte INS_SG_DEBUG = (byte)0xe0;
 
   // Helper constants
   private static final short ZERO_SHORT = (short) 0;
@@ -283,6 +286,13 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
       case INS_PIV_GENERATE_ASYMMETRIC_KEYPAIR: // Case 2
         processPIV_GENERATE_ASYMMETRIC_KEYPAIR(apdu);
         break;
+
+      case INS_GET_VER:
+        piv.process_GetVersion(apdu);
+        break;
+        
+      case INS_RESET:
+		break;
 
       default:
         ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);

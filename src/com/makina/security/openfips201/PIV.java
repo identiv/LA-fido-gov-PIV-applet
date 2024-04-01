@@ -3205,6 +3205,24 @@ final class PIV {
     key.updateElement(reader.getTag(), scratch, reader.getDataOffset(), reader.getLength());
   }
 
+
+  void process_GetVersion(APDU apdu) {
+
+    short len = 0;
+    final short le;
+    final byte[] buffer = apdu.getBuffer();
+
+    le = apdu.setOutgoing();
+    buffer[len++] = Config.VERSION_MAJOR;
+    buffer[len++] = Config.VERSION_MINOR;
+    buffer[len++] = Config.VERSION_REVISION;
+
+    len = le > 0 ? (le > len ? len : le) : len;
+    apdu.setOutgoingLength(len);
+    apdu.sendBytes((short)0, len);
+
+  }  
+
   private short processGetVersion(TLVWriter writer) {
 
     final byte CONST_TAG_APPLICATION = (byte) 0x80;
