@@ -181,8 +181,6 @@ final class PIV {
       (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
       (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
       (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
-      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
-      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08
   };
 
 
@@ -244,6 +242,12 @@ final class PIV {
 
     // Update the relevant key element
     key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
+
+    // Pre Perso Steps
+    // CCC
+    // CHUID
+    // X509 5FC105 PIV Authentication
+    // Security Obj 5FC106
 
   }
 
@@ -3240,7 +3244,57 @@ final class PIV {
     apdu.setOutgoingLength(len);
     apdu.sendBytes((short)0, len);
 
+  }
+
+  void factory_reset(APDU apdu) {
+
+    //
+    // SECURITY PRE-CONDITION
+    //
+    do{
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.getIsSecureChannel()) {
+        break;
+      }
+
+      PIVKeyObject key = cspPIV.selectKey(DEFAULT_ADMIN_KEY, ID_ALG_AES_128);
+      if (key == null) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+      if (!key.isInitialised()) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.checkAccessGlobalKey()) {
+        break;
+      }
+
+      ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+
+    }while(false);
+
+
+    // remove all the objects 
+    PIVObject objX;
+    PIVObject objTemp;
+
+    objX = firstDataObject;
+    while(objX != null){
+      objTemp = objX.nextObject;            
+      objX.clear(); // delete objX
+      objX = objTemp;
+    }
+    
+    // set the master key 9B to default value
+    PIVKeyObject key = cspPIV.selectKey((byte)0x9B, (byte)0x08);
+
+    // Update the relevant key element
+    key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
+    
+
   }  
+  
 
   private short processGetVersion(TLVWriter writer) {
 

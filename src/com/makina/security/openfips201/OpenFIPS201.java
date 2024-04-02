@@ -292,7 +292,8 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
         break;
         
       case INS_RESET:
-		break;
+        piv.factory_reset(apdu);
+        break;
 
       default:
         ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -615,6 +616,8 @@ public final class OpenFIPS201 extends Applet implements AppletEvent {
 
     piv.resetRetryCounter(buffer[ISO7816.OFFSET_P2], buffer, ISO7816.OFFSET_CDATA, length);
   }
+
+
 
   /**
    * Process the PIV 'GENERAL AUTHENTICATE' command
