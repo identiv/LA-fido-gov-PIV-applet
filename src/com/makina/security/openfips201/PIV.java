@@ -2960,7 +2960,8 @@ final class PIV {
         ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
       }
 
-      // The command must have been sent over SCP with CEnc+CMac
+      // The command must have been sent over SCP with CEnc+CMac or 
+      // auth using 9B
       if (cspPIV.checkAccessGlobalKey()) {
         break;
       }
@@ -3125,10 +3126,11 @@ final class PIV {
         ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
       }
 
-      if (authenticationContext[OFFSET_AUTH_ID] == DEFAULT_ADMIN_KEY
-          && authenticationContext[OFFSET_AUTH_MECHANISM] == ID_ALG_AES_128) {
-          break;
-      }
+      // The command must have been sent over SCP with CEnc+CMac or 
+      // auth using 9B
+      if (cspPIV.checkAccessGlobalKey()) {
+        break;
+      }      
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
 
     }while(false);
