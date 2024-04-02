@@ -176,6 +176,16 @@ final class PIV {
   // TRANSIENT - Holds any authentication related intermediary state
   private final byte[] authenticationContext;
 
+  private static final byte[] ADMIN_KEY_BUFFER = {
+      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
+      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
+      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
+      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
+      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
+      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08
+  };
+
+
   /** Constructor */
   PIV() {
 
@@ -224,8 +234,16 @@ final class PIV {
     // 0024089B143012801001020304050607080102030405060708          # Default key
     // 01020304050607080102030405060708
     //
-    // both these steps should be done using SCP03
+    // Create the default 9B AES 128 Key
     //
+    cspPIV.createKey(
+        (byte)0x9B, (byte)0x7F, (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x01, (byte)0x19);
+      //   id,     modeContact, modeContactless, adminKey, keyMechanism, keyRole, keyAttribute);
+
+    PIVKeyObject key = cspPIV.selectKey((byte)0x9B, (byte)0x08);
+
+    // Update the relevant key element
+    key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
 
   }
 
@@ -2047,11 +2065,12 @@ final class PIV {
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
     }
 
+    // with or without Mutual attribute
     // PRE-CONDITION 2 - The key MUST have the PERMIT MUTUAL attribute set
-    if (key.hasAttribute(PIVKeyObject.ATTR_PERMIT_MUTUAL)) {
-      PIVSecurityProvider.zeroise(scratch, ZERO, LENGTH_SCRATCH);
-      ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-    }
+    // if (key.hasAttribute(PIVKeyObject.ATTR_PERMIT_MUTUAL)) {
+    //   PIVSecurityProvider.zeroise(scratch, ZERO, LENGTH_SCRATCH);
+    //   ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+    // }
 
     //
     // EXECUTION STEPS

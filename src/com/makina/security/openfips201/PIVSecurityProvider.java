@@ -302,7 +302,7 @@ final class PIVSecurityProvider {
 
     } while (false);
 
-    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,(short)0); // free the memory
+    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,(short)keyToBeDeleted.getKeyLengthBytes());
   }
 
 
