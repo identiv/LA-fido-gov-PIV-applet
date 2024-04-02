@@ -234,23 +234,23 @@ final class Config {
   //
   static final byte LIMIT_PIN_MIN_LENGTH = (byte) 4;
   static final byte LIMIT_PIN_MAX_LENGTH = (byte) 16;
-  static final byte LIMIT_PIN_MAX_RETRIES = (byte) 15;
+  static final byte LIMIT_PIN_MAX_RETRIES = (byte) 6;  // pinRetries from YBK
   static final byte LIMIT_PIN_HISTORY = (byte) 12;
 
   static final byte LIMIT_PUK_MIN_LENGTH = (byte) 6;
   static final byte LIMIT_PUK_MAX_LENGTH = (byte) 16;
-  static final byte LIMIT_PUK_MAX_RETRIES = (byte) 15;
+  static final byte LIMIT_PUK_MAX_RETRIES = (byte) 6; // pukRetries from YBK
 
   private static final byte DEFAULT_PIN_ENABLE_LOCAL = TLV.TRUE;
   private static final byte DEFAULT_PIN_MIN_LENGTH = (byte) 6;
   private static final byte DEFAULT_PIN_MAX_LENGTH = (byte) 8;
   private static final byte DEFAULT_PIN_RETRIES_CONTACT = (byte) 6;
-  private static final byte DEFAULT_PIN_RETRIES_CONTACTLESS = (byte) 5;
+  private static final byte DEFAULT_PIN_RETRIES_CONTACTLESS = (byte) 6;
 
   private static final byte DEFAULT_PUK_ENABLED = TLV.TRUE;
   private static final byte DEFAULT_PUK_LENGTH = (byte) 8;
-  private static final byte DEFAULT_PUK_RETRIES_CONTACT = (byte) 10;
-  private static final byte DEFAULT_PUK_RETRIES_CONTACTLESS = (byte) 9;
+  private static final byte DEFAULT_PUK_RETRIES_CONTACT = (byte) 6;
+  private static final byte DEFAULT_PUK_RETRIES_CONTACTLESS = (byte) 6;
 
   //
   // Enumeration - PIN Mode

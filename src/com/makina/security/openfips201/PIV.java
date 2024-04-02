@@ -183,6 +183,12 @@ final class PIV {
       (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
   };
 
+  private static final byte[] DEFAULT_PIN = {
+      '1', '2', '3', '4', '5', '6', (byte)0xFF, (byte)0xFF
+  };
+  private static final byte[] DEFAULT_PUK = {
+      '1', '2', '3', '4', '5', '6', '7', '8'
+  };
 
   /** Constructor */
   PIV() {
@@ -215,14 +221,14 @@ final class PIV {
     //
 
     // Generate a random PIN value to initialise it
-    PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
-    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH, ZERO);
-    PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
+    // PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
+    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, DEFAULT_PIN, ZERO, (byte)0x08, ZERO);
+    //PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
 
     // Generate a random PUK value to initialise it
-    PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
-    cspPIV.updatePIN(ID_CVM_PUK, scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH, ZERO);
-    PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
+    // PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
+    cspPIV.updatePIN(ID_CVM_PUK, DEFAULT_PUK, ZERO, (byte)0x08, ZERO);
+    //PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
 
     //
     // NOTE: We do not initialise the Global PIN as this may have been managed externally.
@@ -702,6 +708,9 @@ final class PIV {
           ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
         }
         break;
+       
+       case ID_CVM_PUK:
+       	break;      
 
       default:
         ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
@@ -3272,6 +3281,16 @@ final class PIV {
         break;
       }
 
+      // Check if PIN & PUK retries has exceeded
+      PIN pin = cspPIV.getPIN(ID_CVM_LOCAL_PIN);
+      PIN puk = cspPIV.getPIN(ID_CVM_PUK);
+      if ((puk.getTriesRemaining() == ZERO) && 
+        (pin.getTriesRemaining() == ZERO))
+      {
+        // Both PIN & PUK are blocked. Hence reset is allowed
+        break;
+      }
+
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
 
     }while(false);
@@ -3293,8 +3312,14 @@ final class PIV {
 
     // Update the relevant key element
     key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
-    
 
+    // Set PIN to 123456
+    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, DEFAULT_PIN, ZERO, (byte)0x08, ZERO);
+
+    // Set PUK to 12345678
+    cspPIV.updatePIN(ID_CVM_PUK, DEFAULT_PUK, ZERO, (byte)0x08, ZERO);
+
+    
   }  
   
 

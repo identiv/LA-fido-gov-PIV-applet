@@ -50,7 +50,7 @@ final class PIVOwnerPIN implements PIVPIN {
    * from the fact that the SW12 value for an incorrect PIN only
    * permits the remaining attempts to be stored in a nibble.
    */
-  public static final byte HARD_PIN_TRY_LIMIT = (byte) 15;
+  public static final byte HARD_PIN_TRY_LIMIT = (byte) 6;
 
   private final OwnerPIN myPIN;
   private byte mySoftTryLimit;
