@@ -268,7 +268,7 @@ final class PIVSecurityProvider {
   /**
    * Delete key from the linked list
    *
-   * @param PIVObject key that needs to be deleted
+   * @param keyToBeDeleted key that needs to be deleted
    */
   void DeleteKeyFromStore(PIVKeyObject keyToBeDeleted) {
   	byte[] array1 = {10, 20, 30}; // dummy array to keep compiler happy
@@ -302,14 +302,13 @@ final class PIVSecurityProvider {
 
     } while (false);
 
-    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,(short)keyToBeDeleted.getKeyLengthBytes());
+    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,keyToBeDeleted.getKeyLengthBytes());
   }
 
 
   /**
    * Validates the current security conditions for administering the specified object.
    *
-   * @param object The object to check permissions for
    * @return True of the access mode check passed
    */
   boolean checkAccessGlobalKey(){
