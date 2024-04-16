@@ -66,7 +66,11 @@ final class PIV {
   // Data Objects
   static final byte ID_DATA_DISCOVERY = (byte) 0x7E;
 
-  // Keys
+  // The default administrative key reference
+  static final byte DEFAULT_ADMIN_KEY = (byte) 0x9B;
+
+
+  // Keys Mechanism parameter of 8E - 
   static final byte ID_ALG_DEFAULT = (byte) 0x00; // This maps to TDEA_3KEY
   static final byte ID_ALG_TDEA_3KEY = (byte) 0x03;
   static final byte ID_ALG_RSA_1024 = (byte) 0x06;
@@ -172,6 +176,20 @@ final class PIV {
   // TRANSIENT - Holds any authentication related intermediary state
   private final byte[] authenticationContext;
 
+  private static final byte[] ADMIN_KEY_BUFFER = {
+      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
+      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
+      (byte)0x01, (byte)0x02, (byte)0x03, (byte)0x04,
+      (byte)0x05, (byte)0x06, (byte)0x07, (byte)0x08,
+  };
+
+  private static final byte[] DEFAULT_PIN = {
+      '1', '2', '3', '4', '5', '6', (byte)0xFF, (byte)0xFF
+  };
+  private static final byte[] DEFAULT_PUK = {
+      '1', '2', '3', '4', '5', '6', '7', '8'
+  };
+
   /** Constructor */
   PIV() {
 
@@ -203,18 +221,40 @@ final class PIV {
     //
 
     // Generate a random PIN value to initialise it
-    PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
-    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH, ZERO);
-    PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
+    // PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
+    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, DEFAULT_PIN, ZERO, (byte)0x08, ZERO);
+    //PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PIN_MAX_LENGTH);
 
     // Generate a random PUK value to initialise it
-    PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
-    cspPIV.updatePIN(ID_CVM_PUK, scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH, ZERO);
-    PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
+    // PIVCrypto.doGenerateRandom(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
+    cspPIV.updatePIN(ID_CVM_PUK, DEFAULT_PUK, ZERO, (byte)0x08, ZERO);
+    //PIVSecurityProvider.zeroise(scratch, ZERO, Config.LIMIT_PUK_MAX_LENGTH);
 
     //
     // NOTE: We do not initialise the Global PIN as this may have been managed externally.
     //
+    // 9B AES128 should be used as a part of pre-perso scripts
+    // 00DB3F00 14 6612 8B01 9B 8C017F 8D0100 8E0108 8F0101 900111 # CREATE KEY - 9B AES128
+    // 0024089B143012801001020304050607080102030405060708          # Default key
+    // 01020304050607080102030405060708
+    //
+    // Create the default 9B AES 128 Key
+    //
+    cspPIV.createKey(
+        (byte)0x9B, (byte)0x7F, (byte)0x00, (byte)0x00, (byte)0x08, (byte)0x01, (byte)0x19);
+      //   id,     modeContact, modeContactless, adminKey, keyMechanism, keyRole, keyAttribute);
+
+    PIVKeyObject key = cspPIV.selectKey((byte)0x9B, (byte)0x08);
+
+    // Update the relevant key element
+    key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
+
+    // Pre Perso Steps
+    // CCC
+    // CHUID
+    // X509 5FC105 PIV Authentication
+    // Security Obj 5FC106
+
   }
 
   /**
@@ -556,22 +596,25 @@ final class PIV {
         //
         // All other objects
         //
-      case CONST_TAG:
+      case CONST_TAG: // 0x5C
         offset++; // Move to the length byte
-        if (buffer[offset] != CONST_LEN_NORMAL) ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
+        if (buffer[offset] != CONST_LEN_NORMAL)
+          ISOException.throwIt(SW_REFERENCE_NOT_FOUND); // 0x03
 
         offset++; // Move to the first tag data byte
-        if (buffer[offset] != CONST_TAG_NORMAL_1) ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
+        if (buffer[offset] != CONST_TAG_NORMAL_1)
+          ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND); // 5F
 
         offset++; // Move to the second tag data byte
-        if (buffer[offset] != CONST_TAG_NORMAL_2) ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
+        if (buffer[offset] != CONST_TAG_NORMAL_2)
+          ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND); // C1
 
         offset++; // Move to the third tag data byte (which is our identifier)
         id = buffer[offset]; // Store it as our object ID
 
         // PRE-CONDITION 2 - For other objects, the 'DATA' tag must be present in the buffer
         offset++; // Move to the DATA tag
-        if (buffer[offset] != CONST_DATA) {
+        if (buffer[offset] != CONST_DATA) { // 53
           ISOException.throwIt(ISO7816.SW_WRONG_DATA);
           return; // Keep static analyser happy
         }
@@ -665,6 +708,9 @@ final class PIV {
           ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
         }
         break;
+       
+       case ID_CVM_PUK:
+       	break;      
 
       default:
         ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
@@ -896,7 +942,7 @@ final class PIV {
     boolean puk = false;
 
     switch (id) {
-      case ID_CVM_GLOBAL_PIN:
+      case ID_CVM_GLOBAL_PIN: // 00
         // Make sure CONFIG_PIN_ENABLE_GLOBAL is set
         if (!config.readFlag(Config.CONFIG_PIN_ENABLE_GLOBAL)) {
           ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
@@ -913,7 +959,7 @@ final class PIV {
         intermediateRetries = config.getIntermediatePINRetries();
         break;
 
-      case ID_CVM_LOCAL_PIN:
+      case ID_CVM_LOCAL_PIN: // 80
         // Make sure CONFIG_PIN_ENABLE_LOCAL is set
         if (!config.readFlag(Config.CONFIG_PIN_ENABLE_LOCAL)) {
           ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
@@ -929,7 +975,7 @@ final class PIV {
         intermediateRetries = config.getIntermediatePINRetries();
         break;
 
-      case ID_CVM_PUK:
+      case ID_CVM_PUK: // 81
         // Make sure CONFIG_PUK_ENABLED is set
         if (!config.readFlag(Config.CONFIG_PUK_ENABLED)) {
           ISOException.throwIt(SW_REFERENCE_NOT_FOUND);
@@ -2032,11 +2078,12 @@ final class PIV {
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
     }
 
+    // with or without Mutual attribute
     // PRE-CONDITION 2 - The key MUST have the PERMIT MUTUAL attribute set
-    if (key.hasAttribute(PIVKeyObject.ATTR_PERMIT_MUTUAL)) {
-      PIVSecurityProvider.zeroise(scratch, ZERO, LENGTH_SCRATCH);
-      ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-    }
+    // if (key.hasAttribute(PIVKeyObject.ATTR_PERMIT_MUTUAL)) {
+    //   PIVSecurityProvider.zeroise(scratch, ZERO, LENGTH_SCRATCH);
+    //   ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+    // }
 
     //
     // EXECUTION STEPS
@@ -2547,7 +2594,7 @@ final class PIV {
     //
 
     // PRE-CONDITION 1 - The 'ID' tag MUST be present
-    if (!reader.match(CONST_TAG_ID)) {
+    if (!reader.match(CONST_TAG_ID)) { // 8B
       ISOException.throwIt(PIV.SW_PUT_DATA_ID_MISSING);
       return;
     }
@@ -2606,7 +2653,7 @@ final class PIV {
 
     // PRE-CONDITION 7 - The 'ADMIN KEY' tag MAY be present
     byte adminKey = (byte) 0;
-    if (reader.match(CONST_TAG_ADMIN_KEY)) {
+    if (reader.match(CONST_TAG_ADMIN_KEY)) { // 91
 
       // PRE-CONDITION 8 - If the 'ADMIN KEY' tag is present, it MUST be length 1
       if (reader.getLength() != (short) 1) {
@@ -2707,7 +2754,7 @@ final class PIV {
     //
 
     // PRE-CONDITION 1 - The 'ID' tag MUST be present
-    if (!reader.match(CONST_TAG_ID)) {
+    if (!reader.match(CONST_TAG_ID)) { // 8B
       ISOException.throwIt(PIV.SW_PUT_DATA_ID_MISSING);
       return;
     }
@@ -2717,11 +2764,11 @@ final class PIV {
       ISOException.throwIt(PIV.SW_PUT_DATA_ID_INVALID_LENGTH);
       return;
     }
-    byte id = reader.toByte();
+    byte id = reader.toByte(); // 9A-9E or 9C-9D
     reader.moveNext();
 
     // PRE-CONDITION 3 - The 'MODE CONTACT' tag MUST be present
-    if (!reader.match(CONST_TAG_MODE_CONTACT)) {
+    if (!reader.match(CONST_TAG_MODE_CONTACT)) { // 8c
       ISOException.throwIt(PIV.SW_PUT_DATA_MODE_CONTACT_MISSING);
       return;
     }
@@ -2736,7 +2783,7 @@ final class PIV {
     reader.moveNext();
 
     // PRE-CONDITION 5 - The 'MODE CONTACTLESS' tag MUST be present
-    if (!reader.match(CONST_TAG_MODE_CONTACTLESS)) {
+    if (!reader.match(CONST_TAG_MODE_CONTACTLESS)) { // 8d
       ISOException.throwIt(PIV.SW_PUT_DATA_MODE_CONTACTLESS_MISSING);
       return;
     }
@@ -2752,7 +2799,7 @@ final class PIV {
 
     // PRE-CONDITION 7 - The 'ADMIN KEY' tag MAY be present
     byte adminKey = (byte) 0;
-    if (reader.match(CONST_TAG_ADMIN_KEY)) {
+    if (reader.match(CONST_TAG_ADMIN_KEY)) { // 91
 
       // PRE-CONDITION 8 - If the 'ADMIN KEY' tag is present, it MUST be length 1
       if (reader.getLength() != (short) 1) {
@@ -2765,7 +2812,7 @@ final class PIV {
     }
 
     // PRE-CONDITION 9 - The 'KEY MECHANISM' tag MUST be present
-    if (!reader.match(CONST_TAG_KEY_MECHANISM)) {
+    if (!reader.match(CONST_TAG_KEY_MECHANISM)) { // 8E
       ISOException.throwIt(PIV.SW_PUT_DATA_KEY_MECHANISM_MISSING);
       return;
     }
@@ -2784,7 +2831,7 @@ final class PIV {
     }
 
     // PRE-CONDITION 12 - The 'KEY ROLE' tag MUST be present
-    if (!reader.match(CONST_TAG_KEY_ROLE)) {
+    if (!reader.match(CONST_TAG_KEY_ROLE)) { // 8F
       ISOException.throwIt(PIV.SW_PUT_DATA_KEY_ROLE_MISSING);
       return;
     }
@@ -2798,7 +2845,7 @@ final class PIV {
     reader.moveNext();
 
     // PRE-CONDITION 14 - The 'KEY ATTRIBUTE' tag MUST be present
-    if (!reader.match(CONST_TAG_KEY_ATTRIBUTE)) {
+    if (!reader.match(CONST_TAG_KEY_ATTRIBUTE)) { // 90
       ISOException.throwIt(PIV.SW_PUT_DATA_KEY_ATTR_MISSING);
       return;
     }
@@ -2877,7 +2924,8 @@ final class PIV {
     reader.moveNext();
 
     // PRE-CONDITION 5 - the key referenced by the 'id' and 'mechanism' pair MUST exist
-    if (cspPIV.selectKey(id, keyMechanism) == null) {
+    PIVKeyObject key = cspPIV.selectKey(id, keyMechanism);  // P2 is ID ; P1 Mechanism
+    if (key == null) {
       ISOException.throwIt(ISO7816.SW_RECORD_NOT_FOUND);
       return;
     }
@@ -2889,9 +2937,9 @@ final class PIV {
     // STEP 1 - If the key is related to any SM session or authenticated session, clear it
 
     // STEP 2 - Delete the key from the key store
-
-    // TODO - Implement key deletion
-    ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
+    cspPIV.DeleteKeyFromStore(key);
+    
+    // ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
   }
 
   /**
@@ -2907,11 +2955,31 @@ final class PIV {
     //
     // SECURITY PRE-CONDITION
     //
+    do{
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.getIsSecureChannel()) {
+        break;
+      }
 
-    // The command must have been sent over SCP with CEnc+CMac
-    if (!cspPIV.getIsSecureChannel()) {
+      PIVKeyObject key = cspPIV.selectKey(DEFAULT_ADMIN_KEY, ID_ALG_AES_128);
+      if (key == null) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+      if (!key.isInitialised()) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+
+      // The command must have been sent over SCP with CEnc+CMac or 
+      // auth using 9B
+      if (cspPIV.checkAccessGlobalKey()) {
+        break;
+      }
+
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-    }
+
+    }while(false);
+
+
 
     //
     // COMMAND CHAIN HANDLING
@@ -2971,10 +3039,10 @@ final class PIV {
       // - This means only the default applet settings will apply (NIST compliant profile)
       //
       boolean legacy = false;
-      if (operation == CONST_TAG_LEGACY) {
+      if (operation == CONST_TAG_LEGACY) { // 0x30 or 0x66 (new format)
         // PRE-CONDITION 2A - If this is a LEGACY operation, the 'LEGACY OPERATION' tag MUST
         // be present
-        if (!reader.match(CONST_TAG_LEGACY_OPERATION)) {
+        if (!reader.match(CONST_TAG_LEGACY_OPERATION)) { // 8A
           ISOException.throwIt(PIV.SW_PUT_DATA_OP_MISSING);
         }
         // PRE-CONDITION 2B - The 'OPERATION' tag MUST have length 1
@@ -2991,22 +3059,22 @@ final class PIV {
       switch (operation) {
 
           // Create a data object record
-        case CONST_OP_LEGACY_DATA:
-        case CONST_TAG_CREATE_OBJECT:
+        case CONST_OP_LEGACY_DATA:     // 8A0101
+        case CONST_TAG_CREATE_OBJECT:  // 64
           processCreateObjectRequest(reader);
           break;
 
-        case CONST_TAG_DELETE_OBJECT:
+        case CONST_TAG_DELETE_OBJECT: // 8A0165
           processDeleteObjectRequest(reader);
           break;
 
           // Create a key object record
-        case CONST_OP_LEGACY_KEY:
-        case CONST_TAG_CREATE_KEY:
+        case CONST_OP_LEGACY_KEY: // 8A0102
+        case CONST_TAG_CREATE_KEY: // 66
           processCreateKeyRequest(reader, legacy);
           break;
 
-        case CONST_TAG_DELETE_KEY:
+        case CONST_TAG_DELETE_KEY: // 8A0167
           processDeleteKeyRequest(reader);
           break;
 
@@ -3053,11 +3121,29 @@ final class PIV {
     //
     // SECURITY PRE-CONDITION
     //
+    do{
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.getIsSecureChannel()) {
+        break;
+      }
 
-    // The command must have been sent over SCP with CEnc+CMac
-    if (!cspPIV.getIsSecureChannel()) {
+      PIVKeyObject key = cspPIV.selectKey(DEFAULT_ADMIN_KEY, ID_ALG_AES_128);
+      if (key == null) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+      if (!key.isInitialised()) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+
+      // The command must have been sent over SCP with CEnc+CMac or 
+      // auth using 9B
+      if (cspPIV.checkAccessGlobalKey()) {
+        break;
+      }      
       ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-    }
+
+    }while(false);
+
 
     //
     // COMMAND CHAIN HANDLING
@@ -3077,7 +3163,7 @@ final class PIV {
     //
     // SPECIAL CASE 1 - LOCAL PIN
     //
-    if (id == ID_CVM_LOCAL_PIN) {
+    if (id == ID_CVM_LOCAL_PIN) { // Example for PIN 80 0024FF8008313233343536FFFF
       // NOTE:
       // We deliberately ignore the value of CONFIG_PIN_ENABLE_LOCAL here as there may be a good
       // reason for setting a pre-defined PIN value with the anticipation of enabling it later
@@ -3099,7 +3185,7 @@ final class PIV {
     //
     // SPECIAL CASE 2 - PUK
     //
-    if (id == ID_CVM_PUK) {
+    if (id == ID_CVM_PUK) { // Example for PUK 81 - 0024FF81083132333435363738
       // NOTES:
       // - We deliberately ignore the value of CONFIG_PUK_ENABLED here as there may be a good
       //   reason for setting a pre-defined PUK value with the anticipation of enabling it later
@@ -3112,7 +3198,7 @@ final class PIV {
     }
 
     // PRE-CONDITION 1 - The key reference and mechanism MUST point to an existing key
-    PIVKeyObject key = cspPIV.selectKey(id, buffer[ISO7816.OFFSET_P1]);
+    PIVKeyObject key = cspPIV.selectKey(id, buffer[ISO7816.OFFSET_P1]);  // P2 is ID ; P1 Mechanism
     if (key == null) {
       // If any key reference value is specified that is not supported by the card, the PIV Card
       // Application shall return the status word '6A 88'.
@@ -3152,6 +3238,90 @@ final class PIV {
     // STEP 1 - Update the relevant key element
     key.updateElement(reader.getTag(), scratch, reader.getDataOffset(), reader.getLength());
   }
+
+
+  void process_GetVersion(APDU apdu) {
+
+    short len = 0;
+    final short le;
+    final byte[] buffer = apdu.getBuffer();
+
+    le = apdu.setOutgoing();
+    buffer[len++] = Config.VERSION_MAJOR;
+    buffer[len++] = Config.VERSION_MINOR;
+    buffer[len++] = Config.VERSION_REVISION;
+
+    len = le > 0 ? (le > len ? len : le) : len;
+    apdu.setOutgoingLength(len);
+    apdu.sendBytes((short)0, len);
+
+  }
+
+  void factory_reset(APDU apdu) {
+
+    //
+    // SECURITY PRE-CONDITION
+    //
+    do{
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.getIsSecureChannel()) {
+        break;
+      }
+
+      PIVKeyObject key = cspPIV.selectKey(DEFAULT_ADMIN_KEY, ID_ALG_AES_128);
+      if (key == null) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+      if (!key.isInitialised()) {
+        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+      }
+
+      // The command must have been sent over SCP with CEnc+CMac
+      if (cspPIV.checkAccessGlobalKey()) {
+        break;
+      }
+
+      // Check if PIN & PUK retries has exceeded
+      PIN pin = cspPIV.getPIN(ID_CVM_LOCAL_PIN);
+      PIN puk = cspPIV.getPIN(ID_CVM_PUK);
+      if ((puk.getTriesRemaining() == ZERO) && 
+        (pin.getTriesRemaining() == ZERO))
+      {
+        // Both PIN & PUK are blocked. Hence reset is allowed
+        break;
+      }
+
+      ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+
+    }while(false);
+
+
+    // remove all the objects 
+    PIVObject objX;
+    PIVObject objTemp;
+
+    objX = firstDataObject;
+    while(objX != null){
+      objTemp = objX.nextObject;            
+      objX.clear(); // delete objX
+      objX = objTemp;
+    }
+    
+    // set the master key 9B to default value
+    PIVKeyObject key = cspPIV.selectKey((byte)0x9B, (byte)0x08);
+
+    // Update the relevant key element
+    key.updateElement((byte)0x80, ADMIN_KEY_BUFFER, (short)0x00, (short)0x10); // AES128
+
+    // Set PIN to 123456
+    cspPIV.updatePIN(ID_CVM_LOCAL_PIN, DEFAULT_PIN, ZERO, (byte)0x08, ZERO);
+
+    // Set PUK to 12345678
+    cspPIV.updatePIN(ID_CVM_PUK, DEFAULT_PUK, ZERO, (byte)0x08, ZERO);
+
+    
+  }  
+  
 
   private short processGetVersion(TLVWriter writer) {
 
@@ -3268,18 +3438,18 @@ final class PIV {
     reader.init(scratch, ZERO, length);
 
     // PRE-CONDITION 1 - The 'TAG' data element must be present
-    if (!reader.match(CONST_TAG)) {
+    if (!reader.match(CONST_TAG)) { // 0x5C
       ISOException.throwIt(ISO7816.SW_WRONG_DATA);
     }
 
     // PRE-CONDITION 2 - The 'TAG' data element must be the correct length
-    if (reader.getLength() != CONST_LEN) {
-      ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
+    if (reader.getLength() != CONST_LEN) { // 3
+      ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND); // 0x6A82
     }
 
     // PRE-CONDITION 3 - The 'TAG' value must start with CONST_TAG_EXTENDED
-    if (!reader.matchData(CONST_TAG_EXTENDED)) {
-      ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
+    if (!reader.matchData(CONST_TAG_EXTENDED)) { // 0x2F
+      ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND); // 0x6A82
     }
 
     // Retrieve the 2-byte extended data identifier

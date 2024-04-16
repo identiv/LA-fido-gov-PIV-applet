@@ -3,7 +3,11 @@
 REM *********************************************************************
 REM This value MUST be defined if JAVA_HOME is not already set correctly.
 REM *********************************************************************
-SET JDK="C:\Progra~1\Java\jdk1.8.0_221"
+REM SET JDK="C:\jdk\jdk-1.8"
+REM SET JAVA_HOME="C:\jdk\jdk-1.8"
+
+SET JDK="c:\JavaCardKit2024\SDK\Tools\jdk"
+SET JAVA_HOME="c:\JavaCardKit2024\SDK\Tools\jdk"
 
 ECHO Setting environment variables
 SETLOCAL ENABLEEXTENSIONS

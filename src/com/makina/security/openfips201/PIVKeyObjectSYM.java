@@ -92,7 +92,8 @@ final class PIVKeyObjectSYM extends PIVKeyObject {
         // Clear Key
       case ELEMENT_KEY_CLEAR:
         clear();
-        break;
+        return; // nothing to copy 
+        
 
       default:
         ISOException.throwIt(ISO7816.SW_WRONG_DATA);

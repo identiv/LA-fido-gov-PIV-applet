@@ -195,7 +195,7 @@ final class PIVSecurityProvider {
 
     // First, map the default mechanism code to TDEA 3KEY
     if (mechanism == PIV.ID_ALG_DEFAULT) {
-      mechanism = PIV.ID_ALG_TDEA_3KEY;
+      mechanism = PIV.ID_ALG_AES_128; // Des not supported anymore
     }
 
     PIVKeyObject key = firstKey;
@@ -264,6 +264,70 @@ final class PIVSecurityProvider {
       firstKey = key;
     }
   }
+
+  /**
+   * Delete key from the linked list
+   *
+   * @param keyToBeDeleted key that needs to be deleted
+   */
+  void DeleteKeyFromStore(PIVKeyObject keyToBeDeleted) {
+  	byte[] array1 = {10, 20, 30}; // dummy array to keep compiler happy
+
+    PIVKeyObject temp_position = null;
+    PIVKeyObject keyPrev = firstKey;
+
+    // find previous
+    if (firstKey == null) return; // empty list.nothing to be done
+
+    // previous key -> keyToBeDeleted -> next key
+    do {
+
+      if (firstKey == keyToBeDeleted) {
+        firstKey = (PIVKeyObject) keyToBeDeleted.nextObject;
+        break;
+      }
+
+      // in the following cases header/firstKey does not change
+
+      // first lets find previous node
+      while ((keyPrev.nextObject != null) && (keyPrev.nextObject != keyToBeDeleted)) {
+        keyPrev = (PIVKeyObject) keyPrev.nextObject;
+      }
+
+      // establish the link from prev to next
+      if (keyPrev.nextObject != null) {
+        temp_position = (PIVKeyObject) keyPrev.nextObject;
+        keyPrev.nextObject = temp_position.nextObject;
+      }
+
+    } while (false);
+
+    keyToBeDeleted.updateElement((byte)0xFF,array1,(short)0,keyToBeDeleted.getKeyLengthBytes());
+  }
+
+
+  /**
+   * Validates the current security conditions for administering the specified object.
+   *
+   * @return True of the access mode check passed
+   */
+  boolean checkAccessGlobalKey(){
+  	
+    boolean result = false;
+    // ACCESS CONDITION 1 - Secure Channel (God Mode)
+    //
+    if (getIsSecureChannel()) {
+      result = true;
+    }
+
+    //
+    // ACCESS CONDITION 2 - Administrative Key
+    //
+    if (PIV.DEFAULT_ADMIN_KEY == transientState[STATE_AUTH_KEY]) {
+      result = true;
+    }    
+    return result;
+  }  
 
   /**
    * Validates the current security conditions for administering the specified object.
@@ -390,15 +454,15 @@ final class PIVSecurityProvider {
     PIVPIN pin;
 
     switch (id) {
-      case PIV.ID_CVM_LOCAL_PIN:
+      case PIV.ID_CVM_LOCAL_PIN: // 80
         pin = cardPIN;
         break;
 
-      case PIV.ID_CVM_GLOBAL_PIN:
+      case PIV.ID_CVM_GLOBAL_PIN: // 00
         pin = globalPIN;
         break;
 
-      case PIV.ID_CVM_PUK:
+      case PIV.ID_CVM_PUK: // 81
         // Update the PUK, no history matching required
         cardPUK.update(buffer, offset, length);
         return;

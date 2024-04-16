@@ -46,7 +46,7 @@ final class Config {
   static final short LENGTH_APPLICATION_NAME = (short) 11;
   static final byte VERSION_MAJOR = (byte) 1;
   static final byte VERSION_MINOR = (byte) 10;
-  static final byte VERSION_REVISION = (byte) 2;
+  static final byte VERSION_REVISION = (byte) 4;
   static final byte VERSION_DEBUG = (byte) 0; // If set to 1, this build is considered DEBUG
 
   ///////////////////////////////////////////////////////////////////////////
@@ -99,7 +99,7 @@ final class Config {
         // 2 bytes - Application Property Template (TAG '61')
         (byte) 0x61,
         (byte) 0x81,
-        (byte) 0x8F,
+        (byte) 0x3D,
 
         // 2 + 11 bytes - Application identifier of application (TAG '4F')
         (byte) 0x4F,
@@ -143,96 +143,11 @@ final class Config {
         '0',
         '1',
 
-        // 3 + 73 bytes - Uniform resource locator
-        // http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-73-4.pdf
-        (byte) 0x5F,
-        (byte) 0x50,
-        (byte) 0x49,
-        'h',
-        't',
-        't',
-        'p',
-        ':',
-        '/',
-        '/',
-        'n',
-        'v',
-        'l',
-        'p',
-        'u',
-        'b',
-        's',
-        '.',
-        'n',
-        'i',
-        's',
-        't',
-        '.',
-        'g',
-        'o',
-        'v',
-        '/',
-        'n',
-        'i',
-        's',
-        't',
-        'p',
-        'u',
-        'b',
-        's',
-        '/',
-        'S',
-        'p',
-        'e',
-        'c',
-        'i',
-        'a',
-        'l',
-        'P',
-        'u',
-        'b',
-        'l',
-        'i',
-        'c',
-        'a',
-        't',
-        'i',
-        'o',
-        'n',
-        's',
-        '/',
-        'N',
-        'I',
-        'S',
-        'T',
-        '.',
-        'S',
-        'P',
-        '.',
-        '8',
-        '0',
-        '0',
-        '-',
-        '7',
-        '3',
-        '-',
-        '4',
-        '.',
-        'p',
-        'd',
-        'f',
-
         // 2 + 24 - Cryptographic Algorithm Identifier Template (Tag 'AC')
         (byte) 0xAC,
-        (byte) 0x1E,
+        (byte) 0x18,
 
         // Supported mechanisms
-        (byte) 0x80,
-        (byte) 0x01,
-        PIV.ID_ALG_DEFAULT,
-        (byte) 0x80,
-        (byte) 0x01,
-        PIV.ID_ALG_TDEA_3KEY,
         (byte) 0x80,
         (byte) 0x01,
         PIV.ID_ALG_AES_128,
@@ -319,23 +234,23 @@ final class Config {
   //
   static final byte LIMIT_PIN_MIN_LENGTH = (byte) 4;
   static final byte LIMIT_PIN_MAX_LENGTH = (byte) 16;
-  static final byte LIMIT_PIN_MAX_RETRIES = (byte) 15;
+  static final byte LIMIT_PIN_MAX_RETRIES = (byte) 6;  // pinRetries from YBK
   static final byte LIMIT_PIN_HISTORY = (byte) 12;
 
   static final byte LIMIT_PUK_MIN_LENGTH = (byte) 6;
   static final byte LIMIT_PUK_MAX_LENGTH = (byte) 16;
-  static final byte LIMIT_PUK_MAX_RETRIES = (byte) 15;
+  static final byte LIMIT_PUK_MAX_RETRIES = (byte) 6; // pukRetries from YBK
 
   private static final byte DEFAULT_PIN_ENABLE_LOCAL = TLV.TRUE;
   private static final byte DEFAULT_PIN_MIN_LENGTH = (byte) 6;
   private static final byte DEFAULT_PIN_MAX_LENGTH = (byte) 8;
   private static final byte DEFAULT_PIN_RETRIES_CONTACT = (byte) 6;
-  private static final byte DEFAULT_PIN_RETRIES_CONTACTLESS = (byte) 5;
+  private static final byte DEFAULT_PIN_RETRIES_CONTACTLESS = (byte) 6;
 
   private static final byte DEFAULT_PUK_ENABLED = TLV.TRUE;
   private static final byte DEFAULT_PUK_LENGTH = (byte) 8;
-  private static final byte DEFAULT_PUK_RETRIES_CONTACT = (byte) 10;
-  private static final byte DEFAULT_PUK_RETRIES_CONTACTLESS = (byte) 9;
+  private static final byte DEFAULT_PUK_RETRIES_CONTACT = (byte) 6;
+  private static final byte DEFAULT_PUK_RETRIES_CONTACTLESS = (byte) 6;
 
   //
   // Enumeration - PIN Mode
